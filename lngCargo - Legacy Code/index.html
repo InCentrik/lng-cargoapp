@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en-US">
+
+<!--
+
+  *** SUMMARY ***
+  title: LNG Cargo Analysis
+  description: This application takes in analyzer data samples from the PI System (Data Archive),
+  runs the data through the Grubb's Test, and then writes the calculated data back to the PI System.
+  created: 12/26/2018
+  last updated: 12/26/2018
+
+
+  *** DOCUMENTATION ***
+
+-->
+
+<head>
+  <!-- <base href="/"> -->
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LNG Cargo Analysis</title>
+
+  <!-- BootStrap Library -->
+  <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/angular_material/1.1.8/angular-material.min.css">
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="assets/css/DataSampleTable.css">
+
+
+
+
+  <!-- jQuery Library -->
+  <!--<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.js"></script>-->
+  <script src="https://code.jquery.com/jquery-3.3.1.js" integrity="sha256-2Kok7MbOyxpgUVvAk/HJ2jigOSYS2auK4Pfzbm7uH60=" crossorigin="anonymous"></script>
+  
+
+
+  <!-- AngularJS Libraries -->
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.9/angular.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.7.5/angular-route.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.9/angular-animate.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.9/angular-aria.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.9/angular-messages.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/angular_material/1.1.8/angular-material.min.js"></script>
+
+
+  <!-- BootstrapJS -->
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+
+  <!-- API -->
+  <script type="text/javascript" src="API/PIWebAPI.js"></script>
+
+  <!-- ChartJS -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@2.8.0"></script>
+
+  <!--  Scripts-->
+  <script type="text/javascript" src="models/T_InverseTable.js"></script>
+  <script type="text/javascript" src="models/SampledData.js"></script>
+  <script type="text/javascript" src="models/DataSample.js"></script>
+  <script type="text/javascript" src="models/GrubbsCalculator.js"></script>
+
+  <!-- Controllers -->
+  <script type="text/javascript" src="controllers/main.js"></script>
+
+
+</head>
+<body ng-app="GCDarseReplacementApp" ng-controller="mainCtrl as ctrl">
+  
+  <nav class="navbar navbar-primary bg-primary">
+    <span class="h3">LNG Cargo Analysis</span>
+    <span style="float:right">v.11.1</span>
+  </nav>
+
+<div class="container">
+  <div id="newForm">
+      <form name="form" novalidate class="simple-form" onsubmit="return false;">
+        <div>
+            <p class="h4 text-secondary">Fill out the Jetty Analysis form and press Go!</p> 
+        </div>
+        <hr/>
+        <div id="formTopRow">
+            <span>
+              <input id="cargoName" type="text" name="cargoName" ng-model="ctrl.cargoName" placeholder="cargo name" required minlength="4"/>
+              <select ng-model="ctrl.jetty" required>
+                <option value="">---Select Jetty---</option> <!-- not selected / blank option -->
+                <option value="South" >South</option>
+                <option value="North">North</option>
+              </select>
+              <select ng-model="ctrl.analyzer" required>
+                <option value="">---Select Analyzer---</option> <!-- not selected / blank option -->
+                <option value="South" >South</option>
+                <option value="North">North</option>
+              </select>
+            </span>
+            <p>jetty {{ ctrl.jetty }}</p>
+            <p>analyzer {{ ctrl.analyzer }}</p>
+            <p>Conditional Result: {{ ctrl.analyzerTagSet }}</p>
+        </div>
+        <hr/>
+        <div id="formMiddleRow">
+            <p class="h6 text-secondary">Loading Date Range</p>
+            <md-content layout-padding ng-cloak class="datePicker">
+                <span class="h6 text-secondary">Start: 
+                  <md-datepicker ng-model="ctrl.startDate" name="startDate" md-placeholder="Enter Start Date" md-min-date="ctrl.minDate"></md-datepicker>
+                  <input type="time" id="startTime" name="startTime" min="1:00" max="24:00" placeholder="12:00 AM" ng-model="ctrl.startTime" required>
+                </span>
+            
+                <span class="h6 text-secondary">End: 
+                  <md-datepicker ng-model="ctrl.endDate" name="endDate" md-placeholder="Enter End Date"  md-min-date="ctrl.startDate"></md-datepicker>
+                  <input type="time" id="endTime" name="endTime" min="ctrl.startTime" max="24:00" placeholder="12:00 AM" ng-model="ctrl.endTime" required>
+                </span>
+              </md-content>
+          
+        </div>
+
+        <hr/>
+
+        <div id="formBottomRow">
+            <p class="h6 text-secondary">keep flow totals < 4,000 gpm: {{ ctrl.removeFlowUnder4000Enabled }}</p>
+            <label class="switch">
+              <input type="checkbox" ng-model="ctrl.removeFlowUnder4000Enabled" ng-change="ctrl.changeCallback()">
+              <span class="slider round"></span>
+            </label>
+            <hr/>
+            <span>
+                <input type="button" ng-click="ctrl.resetForm()" class="resetButton" />
+                <input type="button" id="calculateButton" ng-click="ctrl.IWantData()" class="calculateButton" ng-disabled="form.$invalid"/>
+                <div ng-show="form.cargoName.$invalid && (form.cargoName.$dirty || form.cargoName.$touched)" class="alert alert-danger">
+                  <p ng-show="form.cargoName.$error.required" > Name is required. </p>
+                  <p ng-show="form.cargoName.$error.minlength" > Name must be at least 4 characters long. </p>
+                </div>
+
+                <div ng-show="form.startTime.$invalid && (form.startTime.$dirty || form.startTime.$touched)" class="alert alert-danger">
+                  <div ng-show="form.startTime.$error.required"> startTime is required. </div>
+                </div>
+                <div ng-show="form.endTime.$invalid && (form.endTime.$dirty || form.endTime.$touched)" class="alert alert-danger">
+                    <div ng-show="form.endTime.$error.required"> endTime is required. </div>
+
+                </div>
+              </span>
+        </div>
+      </form>
+
+
+  </div>
+  <div class="container" id="newResults">  
+      <div class="resultsBlock printout" id="results">
+          <span class="h5 text-secondary">Results
+              <input type="button" name="printButton" ng-click="ctrl.printResults()" class="printButton btn btn-primary" style="float: right;"/>      
+          </span>
+          <hr/>
+            <div class="text-secondary">
+              <label id="cargoName" >Cargo: {{ ctrl.cargoName }}</label><br>
+              <label id="startDateTime">Start DateTime: {{ ctrl.startDateTime }}</label><br>
+              <label id="endDateTime">End DateTime: {{ ctrl.endDateTime }}</label><br>
+              <label id="jetty">Jetty: {{ ctrl.jetty }}</label><br>
+            </div>
+            <hr/>
+            <div id="box"></div>
+      </div>
+
+  </div>
+  <div class="container" id="flowResults">
+      <div>
+          <span class="h5 text-secondary">Raw Data Totals</span>
+          <div id="charts">
+            <canvas id="methaneChart" width="800" height="400">
+              <p>No data...</p>
+            </canvas>
+            <hr/>
+            <canvas id="ethaneChart" width="800" height="400">
+              <p>No data...</p>
+            </canvas>
+          </div>
+
+          <hr/>
+          <div id="rawFlowTotals"></div>
+      </div>
+  </div>
+</div>
+
+
+
+
+ 
+
+
+</body>
+</html>
+
+
