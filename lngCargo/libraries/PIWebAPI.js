@@ -63,6 +63,7 @@ function webPostRequest(url, body) {
 			withCredentials: true
 		},
 		success: function(result) {
+			console.log(url);
 			promise.resolve(result);
 		},
 		error: function(jqXHR, textStatus, errorThrown) {
